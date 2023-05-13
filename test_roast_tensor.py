@@ -4,8 +4,8 @@ from RoastTensor import RoastTensor
 def main():
     m = RoastTensor([[0., 2.], [-6., 4.]], compression=0.5, requires_grad=False)
     n = RoastTensor([[5., 5.], [5., 5.]], compression=0.5, requires_grad=True)
-    print(m.decompress(m._t))
-    print(m.decompress(n._t))
+    # print(m.decompress(m._t))
+    print(n.decompress(n._t))
     x = m + n
     print(x)
     print(x.grad)

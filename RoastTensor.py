@@ -88,10 +88,6 @@ class RoastTensor(object):
     @data.setter
     def data(self, value):
         self._t = self.compress(value)
-
-    @property
-    def dtype(self):
-        return self._t.dtype
     
     @property
     def shape(self):

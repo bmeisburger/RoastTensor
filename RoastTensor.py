@@ -41,7 +41,6 @@ class RoastTensor(object):
         if t.grad:
             self._t.grad = self.compress(t.grad)
 
-
         # print(self._t)
         # print(torch.mul(self._t[idx], g))
 
@@ -50,28 +49,39 @@ class RoastTensor(object):
         idx = self._hash(torch.arange(start=0, end=self._orig_size.numel(), dtype=torch.int64, device=self._t.device).reshape(self._orig_size), self._comp_size.numel())
         g = self._hash(torch.arange(start=0, end=self._orig_size.numel(), dtype=torch.int32, device=self._t.device).reshape(self._orig_size), 2) * 2 - 1
         
-        return torch.mul(value[idx], g)
+        return torch.mul(value[idx], g).detach().clone()
 
 
     def compress(self, value: torch.Tensor):
-        # add check for device and dtype
-
         idx = self._hash(torch.arange(start=0, end=self._orig_size.numel(), dtype=torch.int64, device=self.device).reshape(self._orig_size), self._comp_size.numel())
         g = self._hash(torch.arange(start=0, end=self._orig_size.numel(), dtype=torch.int32, device=self.device).reshape(self._orig_size), 2) * 2 - 1
 
-        t = torch.zeros(self._comp_size, dtype=self.dtype, device=self.device, requires_grad=self.requires_grad)
+        t = torch.zeros(self._comp_size, dtype=self.dtype, device=self.device)
         t.scatter_add_(0, idx.view(-1), torch.mul(value, g).view(-1))
 
         count = torch.zeros(self._comp_size, dtype=torch.float, device=self.device)
         count.scatter_add_(0, idx.view(-1), torch.ones_like(idx, device=self.device, dtype=torch.float).view(-1)) + 1e-3
 
-        return torch.div(t, count)
+        torch.div(t, count)
+
+        if self.requires_grad:
+            t = t.requires_grad_()
+
+        return t
+    
+
+    def backward(self):
+        self._t.backward()
+
+
+    def __mul__(self, other):
+        other = other.decompress(other._t) if hasattr(other, '_t') else other
+        return RoastTensor(self.decompress(self._t) * other, compression=self._compression, requires_grad=self.requires_grad)
 
 
     def __add__(self, other):
         other = other.decompress(other._t) if hasattr(other, '_t') else other
-        return RoastTensor(self.decompress(self._t) + other, compression=self._compression)
-
+        return RoastTensor(self.decompress(self._t) + other, compression=self._compression, requires_grad=self.requires_grad)
 
     @property
     def grad(self):
